@@ -1,4 +1,7 @@
+import json
+import boto3
 import os
+import logging
 import re
 import sys
 from pathlib import Path
@@ -218,4 +221,53 @@ def main(resume: Path = None):
         logger.error("Refer to the general troubleshooting guide: https://github.com/feder-cr/AIHawk_AIHawk_automatic_job_application/blob/main/readme.md#configuration")
 
 if __name__ == "__main__":
-    main()
+
+# Set up logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Initialize S3 client
+s3 = boto3.client('s3')
+BUCKET_NAME = 'your-s3-bucket-name'  # Replace with your actual S3 bucket name
+
+def lambda_handler(event, context):
+    logger.info("Lambda function started.")
+    try:
+        # Call your main processing function
+        result = process_data()
+        
+        # Example response
+        return {
+            'statusCode': 200,
+            'body': json.dumps('Job executed successfully!')
+        }
+    except Exception as e:
+        logger.error(f"Error processing job: {e}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps('An error occurred.')
+        }
+
+def process_data():
+    # Your existing main function logic
+    # Example: Generate a PDF and upload to S3
+    file_path_pdf = generate_pdf()
+    upload_to_s3(file_path_pdf)
+    return "Success"
+
+def generate_pdf():
+    from reportlab.pdfgen import canvas
+    file_name = '/tmp/resume.pdf'  # AWS Lambda allows writing to /tmp directory
+    c = canvas.Canvas(file_name)
+    c.drawString(100, 750, "Hello, this is a resume PDF.")
+    c.save()
+    logger.info(f"PDF generated at {file_name}")
+    return file_name
+
+def upload_to_s3(file_path):
+    try:
+        s3.upload_file(file_path, BUCKET_NAME, os.path.basename(file_path))
+        logger.info(f"Uploaded {file_path} to S3 bucket {BUCKET_NAME}")
+    except Exception as e:
+        logger.error(f"Failed to upload {file_path} to S3: {e}")
+        raise
